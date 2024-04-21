@@ -1,16 +1,51 @@
-use vek::Vec3;
-use wgpu::util::DeviceExt;
+pub mod buffer;
+
+use vek::{Mat4, Vec3};
 use winit::window::Window;
 
-use crate::vertex::TerrainVertex;
+use crate::{scene::Scene, vertex::TerrainVertex};
 
+use self::buffer::Buffer;
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct Uniforms {
+    proj: [[f32; 4]; 4],
+    view: [[f32; 4]; 4],
+}
+impl Default for Uniforms {
+    fn default() -> Self {
+        Self {
+            proj: Mat4::identity().into_col_arrays(),
+            view: Mat4::identity().into_col_arrays(),
+        }
+    }
+}
+
+impl Uniforms {
+    pub fn new(proj: Mat4<f32>, view: Mat4<f32>) -> Self {
+        Self {
+            proj: proj.into_col_arrays(),
+            view: view.into_col_arrays(),
+        }
+    }
+}
+
+/// Manages the rendering of the application.
 pub struct Renderer {
+    /// Surface on which the renderer will draw.
     surface: wgpu::Surface<'static>,
+    /// The Logical Device, used for interacting with the GPU.
     device: wgpu::Device,
+    /// A Queue handle. Used for command submission.
     queue: wgpu::Queue,
+    /// The surface configuration details.
     config: wgpu::SurfaceConfiguration,
     terrain_pipeline: wgpu::RenderPipeline,
-    vertex_buffer: wgpu::Buffer,
+    quad_buffer: Buffer<TerrainVertex>,
+    index_buffer: Buffer<u32>,
+    uniforms_buffer: Buffer<Uniforms>,
+    common_bg: wgpu::BindGroup,
 }
 
 impl Renderer {
@@ -78,16 +113,72 @@ impl Renderer {
         };
         surface.configure(&device, &config);
 
+        let uniforms_buffer = Buffer::new(
+            &device,
+            wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            &[Uniforms::default()],
+        );
+        let common_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Common Bind Group Layout"),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                    // wgpu::BindGroupLayoutEntry {
+                    //     binding: 1,
+                    //     visibility: wgpu::ShaderStages::FRAGMENT,
+                    //     ty: wgpu::BindingType::Texture {
+                    //         multisampled: false,
+                    //         view_dimension: wgpu::TextureViewDimension::D2,
+                    //         sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    //     },
+                    //     count: None,
+                    // },
+                    // wgpu::BindGroupLayoutEntry {
+                    //     binding: 2,
+                    //     visibility: wgpu::ShaderStages::FRAGMENT,
+                    //     ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    //     count: None,
+                    // },
+                ],
+            });
+        let common_bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Common Bind Group"),
+            layout: &common_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: uniforms_buffer.as_entire_binding(),
+                },
+                // wgpu::BindGroupEntry {
+                //     binding: 1,
+                //     resource: wgpu::BindingResource::TextureView(&atlas_texture.view),
+                // },
+                // wgpu::BindGroupEntry {
+                //     binding: 2,
+                //     resource: wgpu::BindingResource::Sampler(&atlas_texture.sampler),
+                // },
+            ],
+        });
+
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: None,
-            bind_group_layouts: &[],
+            bind_group_layouts: &[&common_bind_group_layout],
             push_constant_ranges: &[],
         });
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
             source: wgpu::ShaderSource::Wgsl(
-                include_str!("../../assets/shaders/voxels.wgsl").into(),
+                include_str!("../../../assets/shaders/voxels.wgsl").into(),
             ),
         });
 
@@ -125,18 +216,15 @@ impl Renderer {
             },
             multiview: None,
         });
-
-        let triangle = [
-            TerrainVertex::new(Vec3::new(0.0, 0.5, 0.0)),
+        let quad = [
+            TerrainVertex::new(Vec3::new(-0.5, 0.5, 0.0)),
             TerrainVertex::new(Vec3::new(-0.5, -0.5, 0.0)),
             TerrainVertex::new(Vec3::new(0.5, -0.5, 0.0)),
+            TerrainVertex::new(Vec3::new(0.5, 0.5, 0.0)),
         ];
 
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: None,
-            contents: bytemuck::cast_slice(&triangle),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
+        let quad_buffer = Buffer::new(&device, wgpu::BufferUsages::VERTEX, &quad);
+        let index_buffer = Buffer::new(&device, wgpu::BufferUsages::INDEX, &[0, 1, 2, 2, 3, 0]);
 
         Self {
             surface,
@@ -144,7 +232,10 @@ impl Renderer {
             queue,
             config,
             terrain_pipeline: render_pipeline,
-            vertex_buffer,
+            quad_buffer,
+            index_buffer,
+            uniforms_buffer,
+            common_bg,
         }
     }
 
@@ -154,7 +245,12 @@ impl Renderer {
         self.surface.configure(&self.device, &self.config);
     }
 
-    pub fn render(&mut self) {
+    pub fn render(&mut self, scene: &mut Scene) {
+        let matrices = scene.camera_matrices();
+
+        self.uniforms_buffer
+            .write(&self.queue, &[Uniforms::new(matrices.proj, matrices.view)]);
+
         let output = self.surface.get_current_texture().unwrap();
         let view = output
             .texture
@@ -188,8 +284,10 @@ impl Renderer {
             });
 
             render_pass.set_pipeline(&self.terrain_pipeline);
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.draw(0..3, 0..1);
+            render_pass.set_bind_group(0, &self.common_bg, &[]);
+            render_pass.set_vertex_buffer(0, self.quad_buffer.slice());
+            render_pass.set_index_buffer(self.index_buffer.slice(), wgpu::IndexFormat::Uint32);
+            render_pass.draw_indexed(0..6, 0, 0..1);
         }
         self.queue.submit(std::iter::once(encoder.finish()));
         output.present();

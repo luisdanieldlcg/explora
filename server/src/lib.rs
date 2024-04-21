@@ -1,3 +1,3 @@
-pub struct Server  {}
+pub struct Server {}
 
 impl Server {}
