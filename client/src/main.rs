@@ -1,5 +1,7 @@
+use client::window::Window;
+
 fn main() {
     tracing_subscriber::fmt::init();
-    tracing::info!("Hello World!");
+    let mut window = Window::new();
+    window.run();
 }
-
