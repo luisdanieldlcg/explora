@@ -6,3 +6,4 @@ members = ["client", "common", "server"]
 
 [workspace.dependencies]
 tracing = "0.1.40"
+vek = "0.16.1"

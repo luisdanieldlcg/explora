@@ -11,5 +11,6 @@ tracing.workspace = true
 winit = "0.29.15"
 wgpu = "0.19.4"
 pollster = "0.3.0"
-vek = "0.16.1"
 bytemuck = { version = "1.15.0", features = ["derive"] }
+vek.workspace = true
+common = { package = "common", path = "../common"}
