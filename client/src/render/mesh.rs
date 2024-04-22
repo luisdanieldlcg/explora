@@ -9,7 +9,6 @@ pub fn create_chunk_mesh(
     c: &Chunk,
     block_atlas: &BlockAtlas,
     block_map: &BlockMap,
-    offset: Vec2<u32>,
 ) -> Vec<TerrainVertex> {
     let mut mesh = vec![];
 
@@ -23,11 +22,7 @@ pub fn create_chunk_mesh(
             .get(&block)
             .unwrap_or_else(|| panic!("Not settings found for block with id={:#?}", block));
 
-        let offset = Vec3::new(
-            offset.x as f32 * Chunk::SIZE.x as f32 + pos.x as f32,
-            pos.y as f32,
-            offset.y as f32 * Chunk::SIZE.z as f32 + pos.z as f32,
-        );
+        let offset = pos.map(|f| f as f32);
 
         // North
         if Chunk::out_of_bounds(pos + Vec3::unit_z()) {
@@ -89,7 +84,6 @@ pub fn create_chunk_mesh(
             ));
         }
 
-
         // West
         if Chunk::out_of_bounds(pos - Vec3::unit_x()) {
             let west_texture = block_atlas
@@ -104,7 +98,6 @@ pub fn create_chunk_mesh(
             mesh.push(TerrainVertex::new(Vec3::zero() + offset, west_texture));
             mesh.push(TerrainVertex::new(Vec3::unit_y() + offset, west_texture));
         }
-
 
         // Top
         if Chunk::out_of_bounds(pos + Vec3::unit_y()) {
@@ -126,7 +119,6 @@ pub fn create_chunk_mesh(
                 top_texture,
             ));
         }
-
 
         // Bottom
         if Chunk::out_of_bounds(pos - Vec3::unit_y()) {

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use common::chunk::Chunk;
 use vek::Vec2;
 
@@ -8,10 +10,46 @@ use super::{
     vertex::TerrainVertex,
 };
 
+pub struct TerrainGeometry {
+    vertex_buffer: Buffer<TerrainVertex>,
+    chunk_pos_buffer: Buffer<[i32; 2]>,
+    bind_group: wgpu::BindGroup,
+}
+
+impl TerrainGeometry {
+    pub fn new(
+        device: &wgpu::Device,
+        layout: &wgpu::BindGroupLayout,
+        vertices: &[TerrainVertex],
+        pos: Vec2<i32>,
+    ) -> Self {
+        let vertex_buffer = Buffer::new(
+            device,
+            wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            &vertices,
+        );
+        let offset_buffer = Buffer::new(device, wgpu::BufferUsages::UNIFORM, &[pos.into_array()]);
+        let chunk_pos_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Chunk Pos Bind Group"),
+            layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: offset_buffer.as_entire_binding(),
+            }],
+        });
+
+        Self {
+            vertex_buffer,
+            chunk_pos_buffer: offset_buffer,
+            bind_group: chunk_pos_bind_group,
+        }
+    }
+}
+
 pub struct Voxels {
     index_buffer: Buffer<u32>,
     terrain_pipeline: wgpu::RenderPipeline,
-    geometry: Vec<Buffer<TerrainVertex>>
+    geometry: HashMap<Vec2<i32>, TerrainGeometry>,
 }
 
 impl Voxels {
@@ -29,9 +67,23 @@ impl Voxels {
             ),
         });
 
+        let chunk_pos_bg_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Chunk Pos Bind Group Layout"),
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+            });
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: None,
-            bind_group_layouts: &[&common_bg_layout],
+            bind_group_layouts: &[&common_bg_layout, &chunk_pos_bg_layout],
             push_constant_ranges: &[],
         });
 
@@ -75,22 +127,23 @@ impl Voxels {
             },
             multiview: None,
         });
-        
-        let mut vertices = vec![];
-        let mut geometry = vec![];
+        let mut geometry = HashMap::new();
+        let mut vertex_count = 0;
         for z in 0..3 {
             for x in 0..3 {
                 let chunk = Chunk::flat();
-                let offset = Vec2::new(x, z);
-                let mesh = create_chunk_mesh(&chunk, block_atlas, block_map, offset);
-                vertices.extend_from_slice(&mesh);
+                let offset = Vec2::new(z, x);
+                let mesh = create_chunk_mesh(&chunk, block_atlas, block_map);
 
-                let quad_buffer = Buffer::new(device, wgpu::BufferUsages::VERTEX, &mesh);
-                geometry.push(quad_buffer);
+                let terrain = TerrainGeometry::new(device, &chunk_pos_bg_layout, &mesh, offset);
+
+                vertex_count += terrain.vertex_buffer.len();
+
+                geometry.insert(offset, terrain);
             }
         }
-        
-        let indices = compute_voxel_indices(vertices.len());
+
+        let indices = compute_voxel_indices(vertex_count as usize);
         let index_buffer = Buffer::new(device, wgpu::BufferUsages::INDEX, &indices);
 
         Self {
@@ -109,9 +162,10 @@ impl Voxels {
         frame.set_bind_group(0, common_bg, &[]);
         frame.set_index_buffer(self.index_buffer.slice(), wgpu::IndexFormat::Uint32);
 
-        for chunk_mesh in &self.geometry {
-            frame.set_vertex_buffer(0, chunk_mesh.slice());
-            frame.draw_indexed(0..chunk_mesh.len() / 4 * 6, 0, 0..1);
+        for (pos, geometry) in &self.geometry {
+            frame.set_bind_group(1, &geometry.bind_group, &[]);
+            frame.set_vertex_buffer(0, geometry.vertex_buffer.slice());
+            frame.draw_indexed(0..geometry.vertex_buffer.len() / 4 * 6, 0, 0..1);
         }
     }
 }
