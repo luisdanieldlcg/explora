@@ -14,3 +14,4 @@ pollster = "0.3.0"
 bytemuck = { version = "1.15.0", features = ["derive"] }
 vek.workspace = true
 common = { package = "common", path = "../common"}
+image = { version = "0.25.1", default-features = false, features = ["png"]}

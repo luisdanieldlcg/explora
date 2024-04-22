@@ -1,34 +1,46 @@
+pub mod atlas;
 pub mod buffer;
 pub mod mesh;
+pub mod texture;
+pub mod vertex;
 pub mod voxels;
 
-use vek::{Mat4, Vec3};
+use vek::Mat4;
 use winit::window::Window;
 
-use crate::{scene::Scene, vertex::TerrainVertex};
+use crate::scene::Scene;
 
-use self::{buffer::Buffer, voxels::Voxels};
+use self::{atlas::BlockAtlas, buffer::Buffer, texture::Texture, voxels::Voxels};
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Uniforms {
     proj: [[f32; 4]; 4],
     view: [[f32; 4]; 4],
+    atlas_size: u32,
+    tile_size: u32,
+    _padding: [u32; 2],
 }
 impl Default for Uniforms {
     fn default() -> Self {
         Self {
             proj: Mat4::identity().into_col_arrays(),
             view: Mat4::identity().into_col_arrays(),
+            atlas_size: 0,
+            tile_size: 0,
+            _padding: [0, 0],
         }
     }
 }
 
 impl Uniforms {
-    pub fn new(proj: Mat4<f32>, view: Mat4<f32>) -> Self {
+    pub fn new(proj: Mat4<f32>, view: Mat4<f32>, atlas_size: u32, tile_size: u32) -> Self {
         Self {
             proj: proj.into_col_arrays(),
             view: view.into_col_arrays(),
+            atlas_size,
+            tile_size,
+            _padding: [0, 0],
         }
     }
 }
@@ -43,9 +55,16 @@ pub struct Renderer {
     queue: wgpu::Queue,
     /// The surface configuration details.
     config: wgpu::SurfaceConfiguration,
+    /// Globals sent to the GPU.
     uniforms_buffer: Buffer<Uniforms>,
+    /// Represents the bidings for common uniforms
     common_bg: wgpu::BindGroup,
+    /// A voxel renderer
     voxels: Voxels,
+    /// Texture Atlas for blocks
+    block_atlas: BlockAtlas,
+    /// Depth texture
+    depth_texture: Texture,
 }
 
 impl Renderer {
@@ -102,6 +121,9 @@ impl Renderer {
             wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             &[Uniforms::default()],
         );
+        let block_atlas = BlockAtlas::new("assets/textures/blocks");
+        let atlas_texture = Texture::new(&device, &queue, &block_atlas.buf);
+
         let common_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("Common Bind Group Layout"),
@@ -116,22 +138,22 @@ impl Renderer {
                         },
                         count: None,
                     },
-                    // wgpu::BindGroupLayoutEntry {
-                    //     binding: 1,
-                    //     visibility: wgpu::ShaderStages::FRAGMENT,
-                    //     ty: wgpu::BindingType::Texture {
-                    //         multisampled: false,
-                    //         view_dimension: wgpu::TextureViewDimension::D2,
-                    //         sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                    //     },
-                    //     count: None,
-                    // },
-                    // wgpu::BindGroupLayoutEntry {
-                    //     binding: 2,
-                    //     visibility: wgpu::ShaderStages::FRAGMENT,
-                    //     ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    //     count: None,
-                    // },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
                 ],
             });
         let common_bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -142,18 +164,18 @@ impl Renderer {
                     binding: 0,
                     resource: uniforms_buffer.as_entire_binding(),
                 },
-                // wgpu::BindGroupEntry {
-                //     binding: 1,
-                //     resource: wgpu::BindingResource::TextureView(&atlas_texture.view),
-                // },
-                // wgpu::BindGroupEntry {
-                //     binding: 2,
-                //     resource: wgpu::BindingResource::Sampler(&atlas_texture.sampler),
-                // },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(&atlas_texture.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::Sampler(&atlas_texture.sampler),
+                },
             ],
         });
-
         let voxels = Voxels::new(&device, &common_bind_group_layout, &config);
+        let depth_texture = Texture::depth(&device, config.width, config.height);
         Self {
             surface,
             device,
@@ -162,6 +184,8 @@ impl Renderer {
             uniforms_buffer,
             common_bg,
             voxels,
+            block_atlas,
+            depth_texture,
         }
     }
 
@@ -169,13 +193,21 @@ impl Renderer {
         self.config.width = w;
         self.config.height = h;
         self.surface.configure(&self.device, &self.config);
+        self.depth_texture = Texture::depth(&self.device, w, h);
     }
 
     pub fn render(&mut self, scene: &mut Scene) {
         let matrices = scene.camera_matrices();
 
-        self.uniforms_buffer
-            .write(&self.queue, &[Uniforms::new(matrices.proj, matrices.view)]);
+        self.uniforms_buffer.write(
+            &self.queue,
+            &[Uniforms::new(
+                matrices.proj,
+                matrices.view,
+                self.block_atlas.size,
+                self.block_atlas.tile_size,
+            )],
+        );
 
         let output = self.surface.get_current_texture().unwrap();
         let view = output
@@ -204,7 +236,14 @@ impl Renderer {
                         store: wgpu::StoreOp::Store,
                     },
                 })],
-                depth_stencil_attachment: None,
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.depth_texture.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: wgpu::StoreOp::Store,
+                    }),
+                    stencil_ops: None,
+                }),
                 occlusion_query_set: None,
                 timestamp_writes: None,
             });

@@ -1,5 +1,6 @@
 use std::f32;
 
+use common::chunk::Chunk;
 use vek::{Mat4, Vec2, Vec3};
 
 const NEAR_PLANE: f32 = 0.1;
@@ -21,7 +22,7 @@ pub struct Camera {
 impl Camera {
     pub fn new(aspect: f32) -> Self {
         Self {
-            pos: Vec3::new(0.0, 0.0, -2.0),
+            pos: Vec3::new(0.0, Chunk::SIZE.y as f32 + 2f32, -2.0),
             rotation: Vec2::new(-1.5, 0.0),
             aspect,
             fov: f32::consts::FRAC_PI_2,
