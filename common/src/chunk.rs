@@ -1,7 +1,7 @@
 use vek::Vec3;
 
 use crate::block::BlockId;
-// TODO: add tests
+
 pub struct Chunk {
     blocks: [BlockId; Self::SIZE.x * Self::SIZE.y * Self::SIZE.z],
 }
@@ -28,13 +28,10 @@ impl Chunk {
     }
 
     pub fn index(pos: Vec3<i32>) -> Option<usize> {
-        if pos.is_any_negative() {
+        if Self::out_of_bounds(pos) {
             return None;
         }
-        let pos = pos.map(|x| x as usize);
-        if pos.x >= Self::SIZE.x || pos.y >= Self::SIZE.y || pos.z >= Self::SIZE.z {
-            return None;
-        }
+        let pos = pos.map(|s| s as usize);
         Some(Self::SIZE.x * Self::SIZE.y * pos.z + Self::SIZE.x * pos.y + pos.x)
     }
 
@@ -78,5 +75,43 @@ impl Iterator for ChunkIter {
 
         self.index += 1;
         Some(Vec3::new(x, y, z).map(|f| f as i32))
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use vek::Vec3;
+
+    use super::Chunk;
+
+    #[test]
+    fn index_test() {
+        assert_eq!(Chunk::index(Vec3::new(-1, -1, -1)), None);
+        assert_eq!(Chunk::index(Vec3::new(256, 256, 256)), None);
+
+        assert_eq!(Chunk::index(Vec3::new(15, 0, 0)), Some(15));
+        assert_eq!(Chunk::index(Vec3::new(0, 255, 0)), Some(16 * 255));
+    }
+
+    #[test]
+    fn pos_iter_test() {
+        let chunk = Chunk::flat();
+        let expected_length = Chunk::SIZE.product();
+        let actual_length = chunk.iter_pos().count();
+        assert_eq!(expected_length, actual_length);
+        for p in chunk.iter_pos() {
+            assert!(!Chunk::out_of_bounds(p));
+        }
+    }
+
+    #[test]
+    fn out_of_bounds_test() {
+        assert!(!Chunk::out_of_bounds(Vec3::zero()));
+        assert!(Chunk::out_of_bounds(Vec3::new(-1, 0, 0)));
+        assert!(Chunk::out_of_bounds(Vec3::new(0, -1, 0)));
+        assert!(Chunk::out_of_bounds(Vec3::new(0, 0, -1)));
+        assert!(Chunk::out_of_bounds(Vec3::new(256, 0, 0)));
+        assert!(Chunk::out_of_bounds(Vec3::new(0, 256, 0)));
+        assert!(Chunk::out_of_bounds(Vec3::new(0, 0, 256)));
     }
 }
