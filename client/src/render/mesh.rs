@@ -1,5 +1,5 @@
 use common::chunk::Chunk;
-use vek::Vec3;
+use vek::{Vec2, Vec3};
 
 use crate::block::BlockMap;
 
@@ -9,6 +9,7 @@ pub fn create_chunk_mesh(
     c: &Chunk,
     block_atlas: &BlockAtlas,
     block_map: &BlockMap,
+    offset: Vec2<u32>,
 ) -> Vec<TerrainVertex> {
     let mut mesh = vec![];
 
@@ -22,92 +23,125 @@ pub fn create_chunk_mesh(
             .get(&block)
             .unwrap_or_else(|| panic!("Not settings found for block with id={:#?}", block));
 
-        let offset = pos.map(|f| f as f32);
-
-        let north_texture = block_atlas.get_texture_id(&block_settings.textures.north).unwrap();
+        let offset = Vec3::new(
+            offset.x as f32 * Chunk::SIZE.x as f32 + pos.x as f32,
+            pos.y as f32,
+            offset.y as f32 * Chunk::SIZE.z as f32 + pos.z as f32,
+        );
 
         // North
-        mesh.push(TerrainVertex::new(
-            Vec3::unit_x() + Vec3::unit_y() + Vec3::unit_z() + offset,
-            north_texture,
-        ));
-        mesh.push(TerrainVertex::new(
-            Vec3::unit_x() + Vec3::unit_z() + offset,
-            north_texture,
-        ));
-        mesh.push(TerrainVertex::new(
-            Vec3::zero() + Vec3::unit_z() + offset,
-            north_texture,
-        ));
-        mesh.push(TerrainVertex::new(
-            Vec3::unit_y() + Vec3::unit_z() + offset,
-            north_texture,
-        ));
-        let south_texture = block_atlas.get_texture_id(&block_settings.textures.south).unwrap();
+        if Chunk::out_of_bounds(pos + Vec3::unit_z()) {
+            let north_texture = block_atlas
+                .get_texture_id(&block_settings.textures.north)
+                .unwrap();
+
+            mesh.push(TerrainVertex::new(
+                Vec3::unit_x() + Vec3::unit_y() + Vec3::unit_z() + offset,
+                north_texture,
+            ));
+            mesh.push(TerrainVertex::new(
+                Vec3::unit_x() + Vec3::unit_z() + offset,
+                north_texture,
+            ));
+            mesh.push(TerrainVertex::new(
+                Vec3::zero() + Vec3::unit_z() + offset,
+                north_texture,
+            ));
+            mesh.push(TerrainVertex::new(
+                Vec3::unit_y() + Vec3::unit_z() + offset,
+                north_texture,
+            ));
+        }
 
         // South
-        mesh.push(TerrainVertex::new(Vec3::unit_y() + offset, south_texture));
-        mesh.push(TerrainVertex::new(Vec3::zero() + offset, south_texture));
-        mesh.push(TerrainVertex::new(Vec3::unit_x() + offset, south_texture));
-        mesh.push(TerrainVertex::new(
-            Vec3::unit_x() + Vec3::unit_y() + offset,
-            south_texture,
-        ));
-        let east_texture = block_atlas.get_texture_id(&block_settings.textures.east).unwrap();
+        if Chunk::out_of_bounds(pos - Vec3::unit_z()) {
+            let south_texture = block_atlas
+                .get_texture_id(&block_settings.textures.south)
+                .unwrap();
+
+            mesh.push(TerrainVertex::new(Vec3::unit_y() + offset, south_texture));
+            mesh.push(TerrainVertex::new(Vec3::zero() + offset, south_texture));
+            mesh.push(TerrainVertex::new(Vec3::unit_x() + offset, south_texture));
+            mesh.push(TerrainVertex::new(
+                Vec3::unit_x() + Vec3::unit_y() + offset,
+                south_texture,
+            ));
+        }
 
         // East
-        mesh.push(TerrainVertex::new(
-            Vec3::unit_x() + Vec3::unit_y() + offset,
-            east_texture,
-        ));
-        mesh.push(TerrainVertex::new(Vec3::unit_x() + offset, east_texture));
-        mesh.push(TerrainVertex::new(
-            Vec3::unit_x() + Vec3::unit_z() + offset,
-            east_texture,
-        ));
-        mesh.push(TerrainVertex::new(
-            Vec3::unit_x() + Vec3::unit_z() + Vec3::unit_y() + offset,
-            east_texture,
-        ));
+        if Chunk::out_of_bounds(pos + Vec3::unit_x()) {
+            let east_texture = block_atlas
+                .get_texture_id(&block_settings.textures.east)
+                .unwrap();
 
-        let west_texture = block_atlas.get_texture_id(&block_settings.textures.west).unwrap();
+            mesh.push(TerrainVertex::new(
+                Vec3::unit_x() + Vec3::unit_y() + offset,
+                east_texture,
+            ));
+            mesh.push(TerrainVertex::new(Vec3::unit_x() + offset, east_texture));
+            mesh.push(TerrainVertex::new(
+                Vec3::unit_x() + Vec3::unit_z() + offset,
+                east_texture,
+            ));
+            mesh.push(TerrainVertex::new(
+                Vec3::unit_x() + Vec3::unit_z() + Vec3::unit_y() + offset,
+                east_texture,
+            ));
+        }
+
 
         // West
-        mesh.push(TerrainVertex::new(
-            Vec3::unit_z() + Vec3::unit_y() + offset,
-            west_texture,
-        ));
-        mesh.push(TerrainVertex::new(Vec3::unit_z() + offset, west_texture));
-        mesh.push(TerrainVertex::new(Vec3::zero() + offset, west_texture));
-        mesh.push(TerrainVertex::new(Vec3::unit_y() + offset, west_texture));
+        if Chunk::out_of_bounds(pos - Vec3::unit_x()) {
+            let west_texture = block_atlas
+                .get_texture_id(&block_settings.textures.west)
+                .unwrap();
 
-        let top_texture = block_atlas.get_texture_id(&block_settings.textures.top).unwrap();
+            mesh.push(TerrainVertex::new(
+                Vec3::unit_z() + Vec3::unit_y() + offset,
+                west_texture,
+            ));
+            mesh.push(TerrainVertex::new(Vec3::unit_z() + offset, west_texture));
+            mesh.push(TerrainVertex::new(Vec3::zero() + offset, west_texture));
+            mesh.push(TerrainVertex::new(Vec3::unit_y() + offset, west_texture));
+        }
+
 
         // Top
-        mesh.push(TerrainVertex::new(
-            Vec3::unit_z() + Vec3::unit_y() + offset,
-            top_texture,
-        ));
-        mesh.push(TerrainVertex::new(Vec3::unit_y() + offset, top_texture));
-        mesh.push(TerrainVertex::new(
-            Vec3::unit_y() + Vec3::unit_x() + offset,
-            top_texture,
-        ));
-        mesh.push(TerrainVertex::new(
-            Vec3::unit_y() + Vec3::unit_x() + Vec3::unit_z() + offset,
-            top_texture,
-        ));
+        if Chunk::out_of_bounds(pos + Vec3::unit_y()) {
+            let top_texture = block_atlas
+                .get_texture_id(&block_settings.textures.top)
+                .unwrap();
 
-        let bottom_texture = block_atlas.get_texture_id(&block_settings.textures.west).unwrap();
+            mesh.push(TerrainVertex::new(
+                Vec3::unit_z() + Vec3::unit_y() + offset,
+                top_texture,
+            ));
+            mesh.push(TerrainVertex::new(Vec3::unit_y() + offset, top_texture));
+            mesh.push(TerrainVertex::new(
+                Vec3::unit_y() + Vec3::unit_x() + offset,
+                top_texture,
+            ));
+            mesh.push(TerrainVertex::new(
+                Vec3::unit_y() + Vec3::unit_x() + Vec3::unit_z() + offset,
+                top_texture,
+            ));
+        }
+
 
         // Bottom
-        mesh.push(TerrainVertex::new(Vec3::zero() + offset, bottom_texture));
-        mesh.push(TerrainVertex::new(Vec3::unit_z() + offset, bottom_texture));
-        mesh.push(TerrainVertex::new(
-            Vec3::unit_z() + Vec3::unit_x() + offset,
-            bottom_texture,
-        ));
-        mesh.push(TerrainVertex::new(Vec3::unit_x() + offset, bottom_texture));
+        if Chunk::out_of_bounds(pos - Vec3::unit_y()) {
+            let bottom_texture = block_atlas
+                .get_texture_id(&block_settings.textures.west)
+                .unwrap();
+
+            mesh.push(TerrainVertex::new(Vec3::zero() + offset, bottom_texture));
+            mesh.push(TerrainVertex::new(Vec3::unit_z() + offset, bottom_texture));
+            mesh.push(TerrainVertex::new(
+                Vec3::unit_z() + Vec3::unit_x() + offset,
+                bottom_texture,
+            ));
+            mesh.push(TerrainVertex::new(Vec3::unit_x() + offset, bottom_texture));
+        }
     }
     mesh
 }

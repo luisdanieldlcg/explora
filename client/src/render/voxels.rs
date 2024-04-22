@@ -1,4 +1,5 @@
 use common::chunk::Chunk;
+use vek::Vec2;
 
 use crate::block::BlockMap;
 
@@ -8,9 +9,9 @@ use super::{
 };
 
 pub struct Voxels {
-    quad_buffer: Buffer<TerrainVertex>,
     index_buffer: Buffer<u32>,
     terrain_pipeline: wgpu::RenderPipeline,
+    geometry: Vec<Buffer<TerrainVertex>>
 }
 
 impl Voxels {
@@ -74,16 +75,27 @@ impl Voxels {
             },
             multiview: None,
         });
+        
+        let mut vertices = vec![];
+        let mut geometry = vec![];
+        for z in 0..3 {
+            for x in 0..3 {
+                let chunk = Chunk::flat();
+                let offset = Vec2::new(x, z);
+                let mesh = create_chunk_mesh(&chunk, block_atlas, block_map, offset);
+                vertices.extend_from_slice(&mesh);
 
-        let flat = Chunk::flat();
-        let mesh = create_chunk_mesh(&flat, block_atlas, block_map);
-        let quad_buffer = Buffer::new(device, wgpu::BufferUsages::VERTEX, &mesh);
-        let indices = compute_voxel_indices(mesh.len());
+                let quad_buffer = Buffer::new(device, wgpu::BufferUsages::VERTEX, &mesh);
+                geometry.push(quad_buffer);
+            }
+        }
+        
+        let indices = compute_voxel_indices(vertices.len());
         let index_buffer = Buffer::new(device, wgpu::BufferUsages::INDEX, &indices);
 
         Self {
             terrain_pipeline,
-            quad_buffer,
+            geometry,
             index_buffer,
         }
     }
@@ -95,9 +107,12 @@ impl Voxels {
     ) {
         frame.set_pipeline(&self.terrain_pipeline);
         frame.set_bind_group(0, common_bg, &[]);
-        frame.set_vertex_buffer(0, self.quad_buffer.slice());
         frame.set_index_buffer(self.index_buffer.slice(), wgpu::IndexFormat::Uint32);
-        frame.draw_indexed(0..self.index_buffer.len(), 0, 0..1);
+
+        for chunk_mesh in &self.geometry {
+            frame.set_vertex_buffer(0, chunk_mesh.slice());
+            frame.draw_indexed(0..chunk_mesh.len() / 4 * 6, 0, 0..1);
+        }
     }
 }
 
