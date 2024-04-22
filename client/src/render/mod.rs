@@ -8,7 +8,7 @@ pub mod voxels;
 use vek::Mat4;
 use winit::window::Window;
 
-use crate::scene::Scene;
+use crate::{block::BlockMap, scene::Scene};
 
 use self::{atlas::BlockAtlas, buffer::Buffer, texture::Texture, voxels::Voxels};
 
@@ -123,6 +123,7 @@ impl Renderer {
         );
         let block_atlas = BlockAtlas::new("assets/textures/blocks");
         let atlas_texture = Texture::new(&device, &queue, &block_atlas.buf);
+        let block_map = BlockMap::load("assets/blocks");
 
         let common_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -174,7 +175,13 @@ impl Renderer {
                 },
             ],
         });
-        let voxels = Voxels::new(&device, &common_bind_group_layout, &config);
+        let voxels = Voxels::new(
+            &device,
+            &common_bind_group_layout,
+            &config,
+            &block_atlas,
+            &block_map,
+        );
         let depth_texture = Texture::depth(&device, config.width, config.height);
         Self {
             surface,

@@ -1,3 +1,4 @@
+pub mod block;
 pub mod camera;
 pub mod key_state;
 pub mod render;

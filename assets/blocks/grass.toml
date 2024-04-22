@@ -1,0 +1,9 @@
+name = "Grass"
+
+[textures]
+north = "grass_side"
+south = "grass_side"
+east  = "grass_side"
+west = "grass_side"
+top = "grass_top"
+bottom = "dirt"

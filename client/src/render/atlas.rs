@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 
 use image::{GenericImage, RgbaImage};
 
@@ -6,6 +6,7 @@ pub struct BlockAtlas {
     pub buf: RgbaImage,
     pub size: u32,
     pub tile_size: u32,
+    pub texture_map: HashMap<String, u32>,
 }
 
 impl BlockAtlas {
@@ -45,6 +46,7 @@ impl BlockAtlas {
         );
 
         let mut id = 1u32;
+        let mut texture_map = HashMap::new();
         for file in &files {
             let texture = match image::open(file) {
                 Ok(t) => t,
@@ -70,7 +72,8 @@ impl BlockAtlas {
             let y = (id / tile_count) * first_image.height();
             // TODO: check errors
             let _ = buffer.copy_from(&texture, x, y);
-
+            // this is ugly
+            texture_map.insert(file.file_stem().unwrap().to_str().unwrap().to_owned(), id);
             id += 1;
         }
 
@@ -80,6 +83,11 @@ impl BlockAtlas {
             buf: buffer,
             size: atlas_width,
             tile_size: first_image.width(),
+            texture_map,
         }
+    }
+
+    pub fn get_texture_id(&self, texture_name: &str) -> Option<u32> {
+        self.texture_map.get(texture_name).copied()
     }
 }

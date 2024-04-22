@@ -36,9 +36,6 @@ impl Chunk {
     }
 
     pub fn get(&self, pos: Vec3<i32>) -> Option<BlockId> {
-        if pos.is_any_negative() {
-            return None;
-        }
         Self::index(pos).map(|index| self.blocks[index])
     }
 

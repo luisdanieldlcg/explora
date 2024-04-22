@@ -1,6 +1,11 @@
 use common::chunk::Chunk;
 
-use super::{buffer::Buffer, mesh::create_chunk_mesh, texture::Texture, vertex::TerrainVertex};
+use crate::block::BlockMap;
+
+use super::{
+    atlas::BlockAtlas, buffer::Buffer, mesh::create_chunk_mesh, texture::Texture,
+    vertex::TerrainVertex,
+};
 
 pub struct Voxels {
     quad_buffer: Buffer<TerrainVertex>,
@@ -13,6 +18,8 @@ impl Voxels {
         device: &wgpu::Device,
         common_bg_layout: &wgpu::BindGroupLayout,
         config: &wgpu::SurfaceConfiguration,
+        block_atlas: &BlockAtlas,
+        block_map: &BlockMap,
     ) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
@@ -69,7 +76,7 @@ impl Voxels {
         });
 
         let flat = Chunk::flat();
-        let mesh = create_chunk_mesh(&flat);
+        let mesh = create_chunk_mesh(&flat, block_atlas, block_map);
         let quad_buffer = Buffer::new(device, wgpu::BufferUsages::VERTEX, &mesh);
         let indices = compute_voxel_indices(mesh.len());
         let index_buffer = Buffer::new(device, wgpu::BufferUsages::INDEX, &indices);
