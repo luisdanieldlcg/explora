@@ -3,7 +3,7 @@ use std::time::Instant;
 use vek::Vec2;
 use winit::{
     event::{DeviceEvent, KeyEvent},
-    event_loop::EventLoop,
+    event_loop::{ControlFlow, EventLoop},
     keyboard::PhysicalKey,
     window::{Window as WinitWindow, WindowBuilder},
 };
@@ -22,6 +22,9 @@ impl Window {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         let event_loop = EventLoop::new().unwrap();
+        // ControlFlow::Poll continuously runs the event loop, even if the OS hasn't
+        // dispatched any events. This is ideal for games and similar applications.
+        event_loop.set_control_flow(ControlFlow::Poll);
 
         let window = WindowBuilder::new()
             .with_title("explora")
@@ -57,6 +60,7 @@ impl Window {
                     match event {
                         winit::event::WindowEvent::Resized(size) => {
                             self.renderer.resize(size.width, size.height);
+                            self.scene.resize(size.width as f32, size.height as f32);
                         }
                         winit::event::WindowEvent::CloseRequested => {
                             tracing::info!("Application close requested.");
@@ -93,7 +97,7 @@ impl Window {
                     );
                     self.scene.look(delta.x, delta.y);
                 }
-                
+
                 winit::event::Event::AboutToWait => {
                     let dt = last_frame.elapsed();
                     self.scene.set_movement_dir(key_state.dir());
