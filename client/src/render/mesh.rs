@@ -1,5 +1,5 @@
 use common::chunk::Chunk;
-use vek::{Vec2, Vec3};
+use vek::Vec3;
 
 use crate::block::BlockMap;
 

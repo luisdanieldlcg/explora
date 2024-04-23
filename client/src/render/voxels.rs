@@ -26,7 +26,7 @@ impl TerrainGeometry {
         let vertex_buffer = Buffer::new(
             device,
             wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            &vertices,
+            vertices,
         );
         let offset_buffer = Buffer::new(device, wgpu::BufferUsages::UNIFORM, &[pos.into_array()]);
         let chunk_pos_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -162,7 +162,7 @@ impl Voxels {
         frame.set_bind_group(0, common_bg, &[]);
         frame.set_index_buffer(self.index_buffer.slice(), wgpu::IndexFormat::Uint32);
 
-        for (pos, geometry) in &self.geometry {
+        for (_pos, geometry) in &self.geometry {
             frame.set_bind_group(1, &geometry.bind_group, &[]);
             frame.set_vertex_buffer(0, geometry.vertex_buffer.slice());
             frame.draw_indexed(0..geometry.vertex_buffer.len() / 4 * 6, 0, 0..1);

@@ -1,13 +1,16 @@
 [package]
-name = "server"
+name = "server-cli"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tracing.workspace = true
+server = { package = "server", path = "../server" }
 quinn.workspace = true
+tracing.workspace = true
+tracing-subscriber = "0.3.18"
 rustls = "0.21.7"
+rcgen = "0.12.1"
 tokio = { version = "1.37.0", features=["rt-multi-thread", "macros"] }
 
