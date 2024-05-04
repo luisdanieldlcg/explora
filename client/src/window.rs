@@ -11,11 +11,11 @@ use winit::{
 use crate::{key_state::KeyState, render::Renderer, scene::Scene};
 
 pub struct Window {
-    window: WinitWindow,
-    event_loop: Option<EventLoop<()>>,
-    renderer: Renderer,
     cursor_grabbed: bool,
     scene: Scene,
+    renderer: Renderer,
+    event_loop: Option<EventLoop<()>>,
+    window: WinitWindow,
 }
 
 impl Window {
