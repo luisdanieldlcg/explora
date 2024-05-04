@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
-members = ["client", "common", "server", "server-cli"]
-default-members=["client"]
+members = ["explora", "common", "server", "server-cli", "client"]
+default-members=["explora"]
 
 
 [workspace.dependencies]

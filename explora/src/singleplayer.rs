@@ -15,11 +15,12 @@ pub struct Singleplayer {
 
 impl Singleplayer {
     pub fn new(config: &mut Config) -> Self {
+        tracing::info!("Starting singleplayer server");
         // Setup local server
         let cert = rcgen::generate_simple_self_signed(vec!["localhost".to_string()]).unwrap();
         let key = rustls::PrivateKey(cert.serialize_private_key_der());
         let cert = cert.serialize_der().unwrap();
-        let addr = "[::1]:0".parse::<SocketAddr>().unwrap();
+        let addr = "127.0.0.1:0".parse::<SocketAddr>().unwrap();
         let socket = UdpSocket::bind(addr).unwrap();
         config.server_addr = Some(socket.local_addr().unwrap());
         let cert_chain = vec![Certificate(cert)];

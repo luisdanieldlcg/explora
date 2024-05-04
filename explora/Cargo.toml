@@ -1,0 +1,26 @@
+[package]
+name = "explora"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tracing-subscriber = "0.3.18"
+tracing.workspace = true
+winit = "0.29.15"
+wgpu = "0.19.4"
+pollster = "0.3.0"
+bytemuck = { version = "1.15.0", features = ["derive"] }
+vek.workspace = true
+common = { package = "common", path = "../common"}
+image = { version = "0.25.1", default-features = false, features = ["png"] }
+serde = "1.0.198"
+toml = "0.8.12"
+quinn.workspace = true
+server = { package = "server", path = "../server" }
+client = { package = "client", path = "../client" }
+rustls = { version = "0.21.7",  features = ["dangerous_configuration"] }
+rcgen = "0.12.1"
+tokio = { version = "1.37.0", features=["rt-multi-thread", "macros"] }
+bytes = "1.6.0"
