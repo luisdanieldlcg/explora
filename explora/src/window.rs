@@ -1,6 +1,5 @@
 use std::time::Instant;
 
-use client::Client;
 use vek::Vec2;
 use winit::{
     event::{DeviceEvent, KeyEvent},
@@ -9,20 +8,24 @@ use winit::{
     window::{Window as WinitWindow, WindowBuilder},
 };
 
-use crate::{config::Config, key_state::KeyState, render::Renderer, scene::Scene};
+use crate::{
+    key_state::KeyState,
+    network::{NetworkThread, Packet},
+    render::Renderer,
+    scene::Scene,
+};
 
 pub struct Window {
+    network_thread: NetworkThread,
     scene: Scene,
     renderer: Renderer,
-    client: Client,
     event_loop: Option<EventLoop<()>>,
     window: WinitWindow,
     cursor_grabbed: bool,
 }
 
 impl Window {
-    #[allow(clippy::new_without_default)]
-    pub fn new(cfg: Config) -> Self {
+    pub fn new(net: NetworkThread) -> Self {
         let event_loop = EventLoop::new().unwrap();
         // ControlFlow::Poll continuously runs the event loop, even if the OS hasn't
         // dispatched any events. This is ideal for games and similar applications.
@@ -35,14 +38,13 @@ impl Window {
         let renderer = pollster::block_on(Renderer::new(&window));
         let size = window.inner_size();
         let scene = Scene::new(size.width as f32 / size.height as f32);
-        let client = Client::new(cfg.server_addr.unwrap());
         Self {
             window,
             event_loop: Some(event_loop),
             renderer,
             cursor_grabbed: false,
             scene,
-            client,
+            network_thread: net,
         }
     }
 
@@ -86,6 +88,11 @@ impl Window {
                             ..
                         } => {
                             key_state.update(code, state.is_pressed());
+                            // test
+                            self.network_thread
+                                .send_channel
+                                .send(Packet::Input(key_state.dir()))
+                                .expect("Channel closed");
                         }
                         _ => (),
                     }
@@ -107,7 +114,6 @@ impl Window {
                     self.scene.set_movement_dir(key_state.dir());
                     self.scene.tick(dt.as_secs_f32());
                     last_frame = Instant::now();
-                    self.client.tick();
                     self.renderer.render(&mut self.scene);
                 }
                 _ => (),

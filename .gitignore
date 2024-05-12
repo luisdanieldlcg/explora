@@ -2,4 +2,7 @@
 debug/
 target/
 
+# VS Code
+.vscode/
+
 Cargo.lock

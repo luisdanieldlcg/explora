@@ -10,7 +10,6 @@ server = { package = "server", path = "../server" }
 quinn.workspace = true
 tracing.workspace = true
 tracing-subscriber = "0.3.18"
-rustls = "0.21.7"
-rcgen = "0.12.1"
+rcgen = "0.13.1"
 tokio = { version = "1.37.0", features=["rt-multi-thread", "macros"] }
 
