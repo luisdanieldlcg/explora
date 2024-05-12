@@ -8,3 +8,4 @@ default-members=["explora"]
 tracing = "0.1.40"
 vek = "0.16.1"
 quinn = { version =  "0.11.0", features = ["ring"]}
+serde = "1.0.201"

@@ -1,3 +1,4 @@
+use common::packet::{self, ClientPacket};
 use quinn::{ClientConfig, Connection, Endpoint};
 use std::thread;
 use std::{net::SocketAddr, sync::Arc};
@@ -33,8 +34,20 @@ impl NetworkThread {
 #[tokio::main]
 async fn network_thread(cfg: &Config, outgoing_recv: mpsc::UnboundedReceiver<Packet>) {
     let (endpoint, connection) = create_quic_client(cfg.server_addr.unwrap()).await;
-    tokio::spawn(handle_outgoing_packets(connection, outgoing_recv));
-    endpoint.wait_idle().await; // Don't let the connection get dropped until we're done with it
+    let stream = connection.open_uni().await.unwrap();
+    tokio::spawn(handle_outgoing_packets(connection.clone(), outgoing_recv));
+    packet::send(stream, ClientPacket::Hello {
+        username: (*cfg.username).into(),
+    }).await;
+
+    // setup incoming packets
+    
+    // receive server hello
+    let server_hellostream = connection.accept_uni().await.unwrap(); 
+    let server_hello: packet::ServerPacket = packet::recv(server_hellostream, 1024).await;
+    tracing::info!(?server_hello);
+    endpoint.wait_idle().await; // Don't let the connection die until we're done with it
+    tracing::info!("Network thread exiting");
 }
 
 async fn handle_outgoing_packets(
@@ -42,12 +55,7 @@ async fn handle_outgoing_packets(
     mut outgoing_recv: mpsc::UnboundedReceiver<Packet>,
 ) {
     while let Some(packet) = outgoing_recv.recv().await {
-        tracing::info!("Received message from main thread: {:?}", packet);
         // let stream = connection.open_uni().await.unwrap();
-        match packet {
-            Packet::Input(dir) => {
-            }
-        }
     }
 }
 

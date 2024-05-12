@@ -15,10 +15,9 @@ bytemuck = { version = "1.15.0", features = ["derive"] }
 vek.workspace = true
 common = { package = "common", path = "../common"}
 image = { version = "0.25.1", default-features = false, features = ["png"] }
-serde = "1.0.198"
+serde.workspace = true
 toml = "0.8.12"
 quinn.workspace = true
 server = { package = "server", path = "../server" }
 rcgen = "0.13.1"
 tokio = { version = "1.37.0", features=["rt-multi-thread", "macros"] }
-bytes = "1.6.0"

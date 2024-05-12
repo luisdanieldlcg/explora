@@ -6,6 +6,7 @@ use serde::Deserialize;
 pub struct Config {
     pub server_addr: Option<SocketAddr>,
     pub singleplayer: bool,
+    pub username: String,
 }
 
 impl Config {

@@ -9,4 +9,4 @@ edition = "2021"
 tracing.workspace = true
 quinn.workspace = true
 tokio = { version = "1.37.0", features=["rt-multi-thread", "macros"] }
-
+common = { path = "../common" }

@@ -23,7 +23,7 @@ fn main() {
     let config = ServerConfig::with_single_cert(cert, key).unwrap();
     tracing::info!("Created server config");
 
-    let addr = "127.0.0.1:0".parse::<SocketAddr>().unwrap();
+    let addr = "127.0.0.1:8192".parse::<SocketAddr>().unwrap();
     let socket = UdpSocket::bind(addr).unwrap();
     server::init(socket, config);
 }
