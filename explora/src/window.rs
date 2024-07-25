@@ -1,5 +1,6 @@
 use std::time::Instant;
 
+use common::packet::ClientPacket;
 use vek::Vec2;
 use winit::{
     event::{DeviceEvent, KeyEvent},
@@ -8,12 +9,7 @@ use winit::{
     window::{Window as WinitWindow, WindowBuilder},
 };
 
-use crate::{
-    key_state::KeyState,
-    network::{NetworkThread, Packet},
-    render::Renderer,
-    scene::Scene,
-};
+use crate::{key_state::KeyState, network::NetworkThread, render::Renderer, scene::Scene};
 
 pub struct Window {
     network_thread: NetworkThread,
@@ -91,7 +87,7 @@ impl Window {
                             // test
                             self.network_thread
                                 .send_channel
-                                .send(Packet::Input(key_state.dir()))
+                                .send(ClientPacket::BlockPosUpdate(self.scene.camera_pos()))
                                 .expect("Channel closed");
                         }
                         _ => (),

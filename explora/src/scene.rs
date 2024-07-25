@@ -18,6 +18,10 @@ impl Scene {
         }
     }
 
+    pub fn camera_pos(&self) -> Vec3<f32> {
+        self.camera.pos()
+    }
+
     pub fn look(&mut self, delta_pitch: f32, delta_yaw: f32) {
         self.camera.rotate_by(delta_pitch * 0.1, delta_yaw * 0.1);
     }

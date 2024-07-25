@@ -38,6 +38,9 @@ impl Camera {
         }
     }
 
+    pub fn pos(&self) -> Vec3<f32> {
+        self.pos
+    }
     pub fn set_aspect_ratio(&mut self, aspect: f32) {
         self.aspect = aspect;
         self.matrices.proj = Mat4::perspective_lh_no(self.fov, aspect, NEAR_PLANE, FAR_PLANE);

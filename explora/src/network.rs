@@ -7,13 +7,8 @@ use vek::Vec3;
 
 use crate::config::Config;
 
-#[derive(Debug)]
-pub enum Packet {
-    Input(Vec3<f32>),
-}
-
 pub struct NetworkThread {
-    pub send_channel: mpsc::UnboundedSender<Packet>,
+    pub send_channel: mpsc::UnboundedSender<ClientPacket>,
     pub thread: thread::JoinHandle<()>,
 }
 
@@ -32,30 +27,31 @@ impl NetworkThread {
 }
 
 #[tokio::main]
-async fn network_thread(cfg: &Config, outgoing_recv: mpsc::UnboundedReceiver<Packet>) {
+async fn network_thread(cfg: &Config, outgoing_recv: mpsc::UnboundedReceiver<ClientPacket>) {
     let (endpoint, connection) = create_quic_client(cfg.server_addr.unwrap()).await;
-    let stream = connection.open_uni().await.unwrap();
-    tokio::spawn(handle_outgoing_packets(connection.clone(), outgoing_recv));
-    packet::send(stream, ClientPacket::Hello {
-        username: (*cfg.username).into(),
-    }).await;
+    let hello_stream = connection.open_uni().await.unwrap();
+    packet::send(
+        hello_stream,
+        ClientPacket::Hello {
+            username: (*cfg.username).into(),
+        },
+    )
+    .await;
 
-    // setup incoming packets
-    
-    // receive server hello
-    let server_hellostream = connection.accept_uni().await.unwrap(); 
-    let server_hello: packet::ServerPacket = packet::recv(server_hellostream, 1024).await;
-    tracing::info!(?server_hello);
+    tokio::spawn(handle_packent_send(connection.clone(), outgoing_recv));
     endpoint.wait_idle().await; // Don't let the connection die until we're done with it
-    tracing::info!("Network thread exiting");
+
+    tracing::warn!("Network thread has been closed.");
 }
 
-async fn handle_outgoing_packets(
+async fn handle_packent_send(
     connection: Connection,
-    mut outgoing_recv: mpsc::UnboundedReceiver<Packet>,
+    mut outgoing_recv: mpsc::UnboundedReceiver<ClientPacket>,
 ) {
     while let Some(packet) = outgoing_recv.recv().await {
-        // let stream = connection.open_uni().await.unwrap();
+        tracing::info!("gonna send this packet: {:?}", packet);
+        let stream = connection.open_uni().await.unwrap();
+        common::packet::send(stream, packet).await;
     }
 }
 

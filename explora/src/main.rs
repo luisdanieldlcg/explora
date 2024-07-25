@@ -5,9 +5,9 @@ fn main() {
 
     let mut config = Config::load();
 
-    if config.singleplayer {
-        let _ = Singleplayer::new(&mut config);
-    }
+    // if config.singleplayer {
+    //     let _ = Singleplayer::new(&mut config);
+    // }
 
     let network = NetworkThread::spawn(config);
     let mut window = Window::new(network);

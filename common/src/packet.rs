@@ -1,11 +1,13 @@
 use crate::config::GameConfig;
 use quinn::SendStream;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use vek::Vec3;
 
 /// Packets send from the client to the server
 #[derive(Debug, Serialize, Deserialize)]
 pub enum ClientPacket {
     Hello { username: String },
+    BlockPosUpdate(Vec3<f32>),
 }
 
 /// Packets send from the server to the client
